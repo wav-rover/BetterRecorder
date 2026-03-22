@@ -1,0 +1,86 @@
+---
+description: "Règles pour le projet Recordly fork (Electron → macOS SwiftUI)"
+alwaysApply: true
+globs:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "**/*.js"
+  - "**/*.jsx"
+  - "**/*.swift"
+  - "**/*.md"
+---
+
+# Contexte projet
+
+- Projet = fork de **Recordly**, screen recorder + éditeur vidéo.
+- Tech actuelle : **Electron** (JS/TS/React) pour la version existante.
+- Objectif final : **app macOS native SwiftUI premium**, Mac-only, UI très clean (inspiration Dia / Superlist).
+- Étapes :
+  1. Simplifier/comprendre la version Electron (flows `record → edit → export`, timeline, paramètres utiles).
+  2. Organiser la **traduction** vers SwiftUI dans des docs Markdown (pas tout migrer d’un coup).
+  3. Implémenter progressivement la version SwiftUI dans un projet Xcode dédié.
+
+# Règles générales de code
+
+## 1. Simplicité et lisibilité
+
+- Écrire le **code le plus simple possible** qui résout le problème.
+- Préférer des fonctions / vues **courtes et lisibles** plutôt que des blocs géants.
+- Nommer les variables, fonctions, types de façon explicite (anglais uniquement).
+
+## 2. Respect du style existant
+
+- Sur la partie Electron :
+  - Respecter la structure et le style déjà en place (React/TS, patterns existants).
+  - Ne pas refactorer massivement les fichiers non concernés par la tâche demandée.
+- Sur la partie SwiftUI :
+  - Utiliser un style SwiftUI moderne, clair (MVVM léger si besoin).
+  - Découper en petites vues réutilisables.
+
+## 3. Pas de nouvelles features non demandées
+
+- Ne **pas ajouter de nouvelles fonctionnalités** sans demande explicite.
+- Quand on parle de “migration” ou de “traduction” :
+  - L’objectif est de **reproduire le comportement existant**, pas d’innover.
+  - Pas de magie en plus, pas de nouvelles options “juste parce que c’est mieux”.
+
+## 4. Langue & i18n
+
+- UI et commentaires en **anglais uniquement**.
+- Pas de système de traduction / i18n à ce stade.
+- Tout texte utilisateur est pensé pour une audience anglophone.
+
+# Règles spécifiques Electron (partie legacy)
+
+- Ne pas complexifier davantage l’architecture Electron : c’est une étape transitoire.
+- Lorsqu’on nettoie ou simplifie :
+  - Supprimer/masquer les menus, options et features non essentielles (hors record, edit, export).
+  - Laisser la logique core (capture, timeline, export) intacte autant que possible.
+- Ne pas introduire de nouvelles grosses dépendances dans Electron.
+
+# Règles spécifiques SwiftUI (partie native)
+
+- Utiliser **SwiftUI** pour toute l’UI macOS.
+- Architecture recommandée :
+  - Modèles/data séparés (Project, Clip, Zoom, etc.).
+  - Vues SwiftUI simples, unidirectionnelles (state → view).
+- Penser à la performance :
+  - Éviter les calculs lourds dans `var body`.
+  - Préférer la composition de vues plutôt que les grosses vues complexes.
+
+# Documentation & fichiers Markdown
+
+- Centraliser les décisions de migration dans `docs/*.md` :
+  - `docs/behaviors.md` pour le comportement de l’app Electron.
+  - `docs/migration-swiftui.md` pour la liste des étapes de traduction.
+- Chaque nouvelle étape importante doit être décrite rapidement dans un doc plutôt que disséminée dans le code.
+
+# Interaction avec l’IA (Cursor)
+
+- Toujours :
+  - Respecter ce contexte et ces règles.
+  - Expliquer brièvement les changements proposés lorsqu’ils sont importants.
+- Quand une tâche parle de “traduire” quelque chose d’Electron vers SwiftUI :
+  - Ne pas inventer de nouvelles fonctionnalités.
+  - Reproduire le comportement existant de manière la plus fidèle possible en SwiftUI.
+  - S’appuyer sur `docs/behaviors.md` comme source principale de vérité behaviorale.

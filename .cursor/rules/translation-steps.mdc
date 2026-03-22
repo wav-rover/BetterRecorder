@@ -1,0 +1,184 @@
+---
+alwaysApply: true
+---
+
+# Electron → SwiftUI migration (translation roadmap)
+
+## 1. Introduction
+
+This project moves from a **Recordly-based Electron** app to a **native macOS app built with SwiftUI**. The goal of this document is to **organize the work as a sequence of translation steps**, not as a greenfield product.
+
+For **every step below**, the objective is **only to translate** what already exists in Electron: the same behaviors, UX concepts, and data meanings. **No new features** should be introduced during migration; any improvement belongs in a **later** phase, after parity is reached.
+
+The behavioral reference for “what exists today” is [`behaviors.md`](./behaviors.md). The main Electron source tree for this fork is [`old-electron/`](../old-electron/). The native shell target in this repo is the Xcode project under [`BetterRecorder/`](../BetterRecorder/) (SwiftUI starter); adjust paths if you rename the folder (e.g. `RecordlyNative/`).
+
+---
+
+## 2. High-level translation steps (overview)
+
+Each numbered item is a **translation** milestone: reproduce Electron’s behavior and UX in SwiftUI, **not** invent new flows or options.
+
+1. **Translate global app structure** — Map multi-window / multi-surface behavior (HUD, editor, selectors, routing) to SwiftUI scenes and macOS windowing. *Goal: translate only what `App.tsx` and the main process already do.*
+
+2. **Translate the recording / launch experience** — HUD, source selection, countdown, tray actions, and paths for recordings. *Goal: translate the launch and capture entry UX described in `behaviors.md`, without new recording modes.*
+
+3. **Translate core data models and project persistence** — Project file shape, editor state, and shared types. *Goal: translate `EditorProjectData`, `ProjectEditorState`, and related types so native code can load/save the same concepts.*
+
+4. **Translate the editor shell** — Preview, playback controls, and the overall editor layout. *Goal: translate `VideoEditor`, `VideoPlayback`, and `PlaybackControls` layout and behavior.*
+
+5. **Translate the timeline** — Multi-row timeline, selection, scrubbing, and row-specific interactions supported today. *Goal: translate `TimelineEditor` and related timeline components, not add new track types.*
+
+6. **Translate zoom and cursor presentation** — Zoom regions, cursor telemetry, and preview rendering rules. *Goal: translate `types.ts` zoom/cursor models and `videoPlayback/` behavior as documented.*
+
+7. **Translate settings and shortcuts** — Editor preferences, settings panels, and configurable shortcuts. *Goal: translate `editorPreferences.ts`, `SettingsPanel`, and `ShortcutsContext` / `ShortcutsConfigDialog` semantics.*
+
+8. **Translate export UX and options** — Dialogs, format/quality/GIF options, progress, save/reveal. *Goal: translate `ExportDialog`, `ExportSettingsMenu`, and exporter option types; full encoder parity may follow the same UX contract.*
+
+9. **Translate macOS shell integration** — Application menu, project open/save, and lifecycle hooks that replace IPC. *Goal: translate `setupApplicationMenu` and related channels with native APIs, without new menu items beyond parity.*
+
+---
+
+## 3. Step-by-step detail
+
+For **each** step: the **only** purpose is **translation** of the existing Electron app (behavior + UX + concepts). **Do not** add new features in that step.
+
+---
+
+### Step 1 – Translate global app structure
+
+**Objective**  
+Translate how the Electron app is **structured at runtime**—window kinds, routing, and transitions between HUD and editor—into SwiftUI/macOS window management, **without** changing what the user can do.
+
+**What to translate**
+
+- **Electron references:** [`old-electron/src/App.tsx`](../old-electron/src/App.tsx) (`windowType` routing), [`old-electron/electron/main.ts`](../old-electron/electron/main.ts) (window creation, `RECORDINGS_DIR`), [`old-electron/electron/ipc/handlers.ts`](../old-electron/electron/ipc/handlers.ts) (`switch-to-editor` and related IPC).
+- **Behaviors to preserve:** Distinct surfaces (e.g. HUD overlay, source selector, countdown, editor), switching from capture flow to editor when a recording completes or when opening a file/project from the HUD.
+- **Native target:** The SwiftUI app entry and scene/window setup in the Xcode project (e.g. [`BetterRecorder/BetterRecorder/BetterRecorderApp.swift`](../BetterRecorder/BetterRecorder/BetterRecorderApp.swift), [`ContentView.swift`](../BetterRecorder/BetterRecorder/ContentView.swift))—as a **placeholder** until this step implements parity.
+
+**Status:** Non démarré
+
+---
+
+### Step 2 – Translate the recording / launch experience
+
+**Objective**  
+Translate the **launch HUD** and **pre-capture** flows into native UI, **only** mirroring Electron’s options and flows (sources, mic, system audio, webcam, countdown, tray stop).
+
+**What to translate**
+
+- **Electron references:** [`old-electron/src/components/launch/LaunchWindow.tsx`](../old-electron/src/components/launch/LaunchWindow.tsx), [`old-electron/src/components/launch/SourceSelector.tsx`](../old-electron/src/components/launch/SourceSelector.tsx), [`old-electron/src/components/countdown/CountdownOverlay.tsx`](../old-electron/src/components/countdown/CountdownOverlay.tsx), [`old-electron/src/hooks/useScreenRecorder.ts`](../old-electron/src/hooks/useScreenRecorder.ts) (coordination; native implementation will use AVFoundation/ScreenCaptureKit on macOS).
+- **Behaviors to preserve:** Screen vs window source, optional audio inputs, countdown values (0 / 3 / 5 / 10 s), default recordings directory and “choose folder” behavior, tray: open HUD / stop recording (see [`behaviors.md`](./behaviors.md) Recording flow).
+- **Note:** This step **translates UX and contracts**; deep capture implementation may be split across steps, but **must not** add recording features beyond what Electron exposes.
+
+**Status:** Non démarré
+
+---
+
+### Step 3 – Translate core data models and project persistence
+
+**Objective**  
+Translate **project and editor state** from TypeScript types and JSON persistence into Swift models and save/load paths, **without** extending the schema with new fields for “nice to have” ideas.
+
+**What to translate**
+
+- **Electron references:** [`old-electron/src/components/video-editor/projectPersistence.ts`](../old-electron/src/components/video-editor/projectPersistence.ts) (`EditorProjectData`, load/save), [`old-electron/src/components/video-editor/types.ts`](../old-electron/src/components/video-editor/types.ts) (`ZoomRegion`, `SpeedRegion`, trim, annotations, cursor types, etc.).
+- **Behaviors to preserve:** `.recordly` (or equivalent) project semantics: version, paths to assets, in-project editor state (zoom regions, trim, speed, annotations, audio, crop, webcam, captions, aspect ratio, export defaults, cursor settings) as described in [`behaviors.md`](./behaviors.md).
+- **Constraint:** Field-level parity with the **existing** fork; new concepts belong in a post-parity phase.
+
+**Status:** Non démarré
+
+---
+
+### Step 4 – Translate the editor shell (preview + controls)
+
+**Objective**  
+Translate the **editor screen layout**: video preview, playback controls, and the surrounding chrome that exists in Electron today—**only** that.
+
+**What to translate**
+
+- **Electron references:** [`old-electron/src/components/video-editor/VideoEditor.tsx`](../old-electron/src/components/video-editor/VideoEditor.tsx), [`old-electron/src/components/video-editor/VideoPlayback.tsx`](../old-electron/src/components/video-editor/VideoPlayback.tsx), [`old-electron/src/components/video-editor/PlaybackControls.tsx`](../old-electron/src/components/video-editor/PlaybackControls.tsx).
+- **Behaviors to preserve:** Loading the current video (and optional webcam path) after recording or open-file, play/pause, time display, and navigation into export/settings entry points as they exist today.
+
+**Status:** Non démarré
+
+---
+
+### Step 5 – Translate the timeline
+
+**Objective**  
+Translate the **multi-row timeline** UI and interactions (drag, trim handles, row types present in the fork), **without** new timeline features.
+
+**What to translate**
+
+- **Electron references:** [`old-electron/src/components/video-editor/timeline/TimelineEditor.tsx`](../old-electron/src/components/video-editor/timeline/TimelineEditor.tsx), [`TimelineWrapper.tsx`](../old-electron/src/components/video-editor/timeline/TimelineWrapper.tsx), [`Row.tsx`](../old-electron/src/components/video-editor/timeline/Row.tsx), [`Subrow.tsx`](../old-electron/src/components/video-editor/timeline/Subrow.tsx), [`Item.tsx`](../old-electron/src/components/video-editor/timeline/Item.tsx); zoom suggestions: [`zoomSuggestionUtils.ts`](../old-electron/src/components/video-editor/timeline/zoomSuggestionUtils.ts).
+- **Behaviors to preserve:** Rows for zoom, trim, annotations, speed, audio, etc.; drag-and-drop / resize behavior consistent with current UX; keyboard shortcuts as wired through the existing shortcut system (see Step 7 for full shortcut parity).
+
+**Status:** Non démarré
+
+---
+
+### Step 6 – Translate zoom and cursor presentation
+
+**Objective**  
+Translate **zoom regions** and **cursor** rendering rules from the current preview pipeline so preview/export semantics stay aligned, **only** replicating current behavior.
+
+**What to translate**
+
+- **Electron references:** [`old-electron/src/components/video-editor/types.ts`](../old-electron/src/components/video-editor/types.ts) (`ZoomRegion`, `ZoomDepth`, `ZoomFocus`, `CursorTelemetryPoint`), [`old-electron/src/components/video-editor/videoPlayback/`](../old-electron/src/components/video-editor/videoPlayback/) (e.g. [`cursorRenderer.ts`](../old-electron/src/components/video-editor/videoPlayback/cursorRenderer.ts), [`cursorViewport.ts`](../old-electron/src/components/video-editor/videoPlayback/cursorViewport.ts), [`zoomTransform.ts`](../old-electron/src/components/video-editor/videoPlayback/zoomTransform.ts)).
+- **Behaviors to preserve:** Zoom depth/focus, cursor styles and smoothing as in preferences, suggested zooms from cursor activity—matching [`behaviors.md`](./behaviors.md) (Timeline / Zooms and cursor).
+
+**Status:** Non démarré
+
+---
+
+### Step 7 – Translate settings and shortcuts
+
+**Objective**  
+Translate **editor preferences** and **shortcut configuration** so the same options and shortcut semantics exist natively, **without** adding new preference tabs or shortcut actions.
+
+**What to translate**
+
+- **Electron references:** [`old-electron/src/components/video-editor/editorPreferences.ts`](../old-electron/src/components/video-editor/editorPreferences.ts), [`old-electron/src/components/video-editor/SettingsPanel.tsx`](../old-electron/src/components/video-editor/SettingsPanel.tsx), [`old-electron/src/contexts/ShortcutsContext.tsx`](../old-electron/src/contexts/ShortcutsContext.tsx), [`old-electron/src/components/video-editor/ShortcutsConfigDialog.tsx`](../old-electron/src/components/video-editor/ShortcutsConfigDialog.tsx), [`KeyboardShortcutsHelp.tsx`](../old-electron/src/components/video-editor/KeyboardShortcutsHelp.tsx) if present.
+- **Behaviors to preserve:** Canvas/framing, zoom animation defaults, cursor, webcam overlay, export defaults as listed in [`behaviors.md`](./behaviors.md) (Useful settings).
+
+**Status:** Non démarré
+
+---
+
+### Step 8 – Translate export UX and export options
+
+**Objective**  
+Translate the **export user flow** and **option surface** (MP4/GIF, quality, GIF frame rate, size presets, progress, save dialog, reveal in Finder), **without** new formats or export features.
+
+**What to translate**
+
+- **Electron references:** [`old-electron/src/components/video-editor/ExportDialog.tsx`](../old-electron/src/components/video-editor/ExportDialog.tsx), [`old-electron/src/components/video-editor/ExportSettingsMenu.tsx`](../old-electron/src/components/video-editor/ExportSettingsMenu.tsx), [`old-electron/src/lib/exporter/types.ts`](../old-electron/src/lib/exporter/types.ts), pipeline entry points [`videoExporter.ts`](../old-electron/src/lib/exporter/videoExporter.ts), [`frameRenderer.ts`](../old-electron/src/lib/exporter/frameRenderer.ts), [`gifExporter.ts`](../old-electron/src/lib/exporter/gifExporter.ts).
+- **Behaviors to preserve:** `ExportFormat` (`mp4` | `gif`), `ExportQuality`, GIF options and progress phases as in [`behaviors.md`](./behaviors.md) (Export flow).
+- **Note:** This step **translates UX and ties options to a native export pipeline**; if full encoder parity is phased, the **visible options and progress states** must still match Electron’s contract.
+
+**Status:** Non démarré
+
+---
+
+### Step 9 – Translate macOS shell integration (menu, projects, lifecycle)
+
+**Objective**  
+Translate **application menu** and **project file** actions that today go through Electron’s main process and IPC, using native AppKit/SwiftUI patterns, **without** new menu commands beyond parity.
+
+**What to translate**
+
+- **Electron references:** [`old-electron/electron/main.ts`](../old-electron/electron/main.ts) (`setupApplicationMenu`), [`old-electron/electron/ipc/handlers.ts`](../old-electron/electron/ipc/handlers.ts) (e.g. `menu-load-project`, `menu-save-project`, `menu-save-project-as`), preload APIs used from the renderer for open/save/reveal.
+- **Behaviors to preserve:** File menu for load/save project, window/view behavior appropriate to a packaged macOS app (vs dev-only items in Electron).
+
+**Status:** Non démarré
+
+---
+
+## 4. How to use this document
+
+- Update **`Status`** per step as work progresses (e.g. *En cours* / *Fait* / *À faire plus tard*—your own convention).
+- When in doubt, re-read [`behaviors.md`](./behaviors.md) and the cited Electron files: the **translation** should match that snapshot, not an imagined v2 product.
+
+---
+
+*This file was generated as a migration checklist. It intentionally contains no SwiftUI implementation—only phased translation goals aligned with the current Electron fork.*
