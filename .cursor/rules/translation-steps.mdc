@@ -53,9 +53,9 @@ Translate how the Electron app is **structured at runtime**—window kinds, rout
 
 - **Electron references:** [`old-electron/src/App.tsx`](../old-electron/src/App.tsx) (`windowType` routing), [`old-electron/electron/main.ts`](../old-electron/electron/main.ts) (window creation, `RECORDINGS_DIR`), [`old-electron/electron/ipc/handlers.ts`](../old-electron/electron/ipc/handlers.ts) (`switch-to-editor` and related IPC).
 - **Behaviors to preserve:** Distinct surfaces (e.g. HUD overlay, source selector, countdown, editor), switching from capture flow to editor when a recording completes or when opening a file/project from the HUD.
-- **Native target:** The SwiftUI app entry and scene/window setup in the Xcode project (e.g. [`BetterRecorder/BetterRecorder/BetterRecorderApp.swift`](../BetterRecorder/BetterRecorder/BetterRecorderApp.swift), [`ContentView.swift`](../BetterRecorder/BetterRecorder/ContentView.swift))—as a **placeholder** until this step implements parity.
+- **Native target:** SwiftUI shell under [`BetterRecorder/BetterRecorder/`](../BetterRecorder/BetterRecorder/): [`BetterRecorderApp.swift`](../BetterRecorder/BetterRecorder/BetterRecorderApp.swift) (`WindowGroup` per surface, launch suppression for non-HUD windows), [`AppShellCoordinator.swift`](../BetterRecorder/BetterRecorder/AppShellCoordinator.swift) (orchestration, `switchToEditor()` mirroring `switch-to-editor` IPC), [`AppWindowID.swift`](../BetterRecorder/BetterRecorder/AppWindowID.swift) / [`AppSurface.swift`](../BetterRecorder/BetterRecorder/AppSurface.swift), [`ShellPlaceholderViews.swift`](../BetterRecorder/BetterRecorder/ShellPlaceholderViews.swift), [`WindowSceneBridge.swift`](../BetterRecorder/BetterRecorder/WindowSceneBridge.swift), [`TransparentWindowConfigurator.swift`](../BetterRecorder/BetterRecorder/TransparentWindowConfigurator.swift). HUD/editor content remains placeholder until later steps.
 
-**Status:** Non démarré
+**Status:** Done — multi-window routing and editor transition hook implemented; tray and `RECORDINGS_DIR` are covered in Step 2.
 
 ---
 
@@ -70,7 +70,7 @@ Translate the **launch HUD** and **pre-capture** flows into native UI, **only** 
 - **Behaviors to preserve:** Screen vs window source, optional audio inputs, countdown values (0 / 3 / 5 / 10 s), default recordings directory and “choose folder” behavior, tray: open HUD / stop recording (see [`behaviors.md`](./behaviors.md) Recording flow).
 - **Note:** This step **translates UX and contracts**; deep capture implementation may be split across steps, but **must not** add recording features beyond what Electron exposes.
 
-**Status:** Non démarré
+**Status:** Done — HUD (`LaunchHUDView.swift`), source selector (`SourceSelectorView.swift`), countdown overlay (`CountdownOverlayView.swift`), `LaunchCaptureController.swift`, ScreenCaptureKit capture (`ScreenCaptureRecordingEngine.swift` ported from `old-electron/electron/native/ScreenCaptureKitRecorder.swift`), optional webcam (`WebcamMovieRecorder.swift`), recordings directory + folder picker (`RecordingsDirectoryService.swift`), mux (`AudioDualMix.swift`), menu bar tray (`MenuBarExtra` in `BetterRecorderApp.swift`), `AppShellCoordinator.showHUD()`.
 
 ---
 
